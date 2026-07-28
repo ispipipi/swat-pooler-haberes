@@ -813,11 +813,60 @@ function PreviewView({ group, pooler, analysis, onDownload, onBack }) {
         </div>
       </div>
 
-      <div className="grid gap-4 md:grid-cols-4">
+      <div className="grid gap-4 md:grid-cols-5">
         <MetricPanel label="Filas detalle" value={output.rowCount} />
         <MetricPanel label="Colaboradores" value={output.collaboratorCount ?? '-'} />
         <MetricPanel label="Conceptos activos" value={output.conceptCount} />
-        <MetricPanel label="Formato" value="CSV ;" />
+        <MetricPanel label="Con función" value={output.control?.functionRows ?? 0} />
+        <MetricPanel label="Sin función" value={output.control?.manualRows ?? 0} />
+      </div>
+
+      <div className="panel">
+        <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
+          <div>
+            <div className="section-title compact">
+              <div className="section-icon"><ShieldCheck size={18} /></div>
+              <div>
+                <p className="eyebrow">Control previo</p>
+                <h3 className="text-lg font-black">Resumen antes de descargar</h3>
+              </div>
+            </div>
+            <p className="mt-2 text-sm text-muted">
+              Valida filas, sumatorias y origen por concepto. `F` aparece solo cuando hay Objeto/función; sin función se informa como `M`.
+            </p>
+          </div>
+          <div className="rounded-lg border border-slate-200 bg-slate-50 px-4 py-3 text-right">
+            <p className="text-[11px] font-black uppercase tracking-[0.1em] text-muted">Sumatoria general</p>
+            <p className="mt-1 text-2xl font-black text-slate-950">{formatAuditNumber(output.control?.total ?? 0)}</p>
+          </div>
+        </div>
+
+        <div className="mt-4 overflow-auto rounded-lg border border-slate-200">
+          <table className="data-table min-w-[940px]">
+            <thead>
+              <tr>
+                <th>Concepto</th>
+                <th>Origen</th>
+                <th>Objeto</th>
+                <th>Filas</th>
+                <th>Colaboradores</th>
+                <th>Sumatoria</th>
+              </tr>
+            </thead>
+            <tbody>
+              {output.control?.conceptSummary.map((item) => (
+                <tr key={`${item.concepto}-${item.objeto || 'manual'}`}>
+                  <td className="font-mono text-xs font-bold">{item.concepto}</td>
+                  <td><span className={item.origen === 'F' ? 'status-pill ok' : 'status-pill neutral'}>{item.origen}</span></td>
+                  <td className="font-mono text-xs text-muted">{item.objeto || 'Sin función'}</td>
+                  <td>{item.filas}</td>
+                  <td>{item.colaboradores}</td>
+                  <td className="font-mono text-xs font-bold">{formatAuditNumber(item.total)}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
       </div>
 
       <div className="panel">

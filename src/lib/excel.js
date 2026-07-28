@@ -234,6 +234,55 @@ export function buildOutput(pooler, activeColumns) {
     conceptCount: activeColumns.length,
     valueCount: rows.length,
     collaboratorCount: new Set(rows.map((row) => row[0])).size,
+    control: buildOutputControl(headers, rows),
+  };
+}
+
+function buildOutputControl(headers, rows) {
+  const conceptIndex = headers.indexOf('Concepto');
+  const valueIndex = headers.indexOf('Valor');
+  const originIndex = headers.indexOf('Origen');
+  const objectIndex = headers.indexOf('Objeto');
+  const byConcept = new Map();
+  let functionRows = 0;
+  let manualRows = 0;
+  let total = 0;
+
+  rows.forEach((row) => {
+    const concept = row[conceptIndex];
+    const value = row[valueIndex];
+    const origin = row[originIndex];
+    const object = row[objectIndex];
+    const key = `${concept}::${object}`;
+    if (object) functionRows += 1;
+    else manualRows += 1;
+    total += typeof value === 'number' ? value : 0;
+
+    if (!byConcept.has(key)) {
+      byConcept.set(key, {
+        concepto: concept,
+        objeto: object,
+        origen: origin,
+        filas: 0,
+        total: 0,
+        colaboradores: new Set(),
+      });
+    }
+
+    const summary = byConcept.get(key);
+    summary.filas += 1;
+    summary.total += typeof value === 'number' ? value : 0;
+    summary.colaboradores.add(row[0]);
+  });
+
+  return {
+    functionRows,
+    manualRows,
+    total,
+    conceptSummary: Array.from(byConcept.values()).map((item) => ({
+      ...item,
+      colaboradores: item.colaboradores.size,
+    })),
   };
 }
 

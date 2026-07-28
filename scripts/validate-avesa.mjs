@@ -69,11 +69,22 @@ if (!horaExtra || horaExtra[objetoIndex] !== 'horaExtra') {
   throw new Error(`Spot check Objeto falló para horas extra: ${horaExtra?.[objetoIndex]}`);
 }
 
+if (output.control.functionRows <= 0 || output.control.manualRows <= 0) {
+  throw new Error(`Spot check control falló: con función ${output.control.functionRows}, sin función ${output.control.manualRows}.`);
+}
+
+if (output.control.conceptSummary.length !== output.conceptCount) {
+  throw new Error(`Spot check resumen por concepto falló: ${output.control.conceptSummary.length} vs ${output.conceptCount}.`);
+}
+
 console.log(JSON.stringify({
   filasDetalle: output.rowCount,
   colaboradores: output.collaboratorCount,
   conceptosActivos: output.conceptCount,
   valores: output.valueCount,
+  filasConFuncion: output.control.functionRows,
+  filasSinFuncion: output.control.manualRows,
+  sumaGeneral: output.control.total,
   pendientesConValores: analysis.pendingColumns.map((item) => item.columnName),
   arayaMinatrasos: araya[valorIndex],
   armijoMinatrasos: armijo[valorIndex],
