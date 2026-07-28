@@ -57,8 +57,12 @@ if (output.rows.some((row) => row[valorIndex] === null)) {
   throw new Error('Spot check filas detalle falló: hay filas sin valor.');
 }
 
-if (output.rows.some((row) => row[origenIndex] !== 'F' || row[periodoIndex] !== 'M' || row[accionIndex] !== 'M' || row[consolidableIndex] !== 'No')) {
-  throw new Error('Spot check constantes falló: Origen, Periodo, Acción o Consolidable no cumplen.');
+if (output.rows.some((row) => row[origenIndex] !== (row[objetoIndex] ? 'F' : 'M'))) {
+  throw new Error('Spot check Origen falló: debe ser F solo con Objeto/función y M sin función.');
+}
+
+if (output.rows.some((row) => row[periodoIndex] !== 'M' || row[accionIndex] !== 'M' || row[consolidableIndex] !== 'No')) {
+  throw new Error('Spot check constantes falló: Periodo, Acción o Consolidable no cumplen.');
 }
 
 if (!horaExtra || horaExtra[objetoIndex] !== 'horaExtra') {
@@ -74,7 +78,8 @@ console.log(JSON.stringify({
   arayaMinatrasos: araya[valorIndex],
   armijoMinatrasos: armijo[valorIndex],
   horaExtraObjeto: horaExtra[objetoIndex],
-  origen: 'F',
+  origenConFuncion: 'F',
+  origenSinFuncion: 'M',
   accion: 'M',
   consolidable: 'No',
 }, null, 2));

@@ -203,7 +203,7 @@ export function buildOutput(pooler, activeColumns) {
         nombreContrato,
         codigoConcepto,
         valor,
-        'F',
+        objetoFuncion ? 'F' : 'M',
         objetoFuncion,
         'M',
         '',
