@@ -47,6 +47,10 @@ if (output.rows.some((row) => row[accionIndex] !== 'C')) {
   throw new Error('Spot check Acción falló: hay filas sin C.');
 }
 
+if (output.rows.some((row) => row.slice(accionIndex + 1).every((value) => value === null))) {
+  throw new Error('Spot check filas exportables falló: hay colaboradores sin conceptos informados.');
+}
+
 console.log(JSON.stringify({
   colaboradores: output.rowCount,
   conceptosActivos: output.conceptCount,

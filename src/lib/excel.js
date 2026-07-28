@@ -189,7 +189,7 @@ export function buildOutput(pooler, activeColumns) {
       return applyNumberRule(row[index], column.mapping.multiplicador ?? 1, column.mapping.redondeo ?? 'ninguno');
     });
     return [...base, ...conceptValues];
-  });
+  }).filter((row) => row.slice(OUTPUT_BASE_HEADERS.length).some((value) => value !== null));
 
   if (rows.length === 0) {
     throw new Error(ERRORS.noOutputRows);
