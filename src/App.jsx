@@ -20,7 +20,7 @@ import {
   Upload,
 } from 'lucide-react';
 import { useEffect, useMemo, useState } from 'react';
-import { REDONDEO_OPTIONS } from './data/seeds.js';
+import { FUNCTION_CATALOG, REDONDEO_OPTIONS } from './data/seeds.js';
 import { useAuth } from './hooks/useAuth.js';
 import { ERRORS } from './lib/errors.js';
 import { analyzePooler, downloadOutputWorkbook, readCatalogExcel, readPooler } from './lib/excel.js';
@@ -165,7 +165,7 @@ export default function App() {
     try {
       await saveMapping(route.groupId, mapping);
       await refreshMappings(route.groupId);
-      setNotice(`Mapeo confirmado: ${mapping.columnaPooler} → ${mapping.codigoConcepto}.`);
+      setNotice(`Mapeo confirmado: ${mapping.columnaPooler} → ${mapping.codigoConcepto}${mapping.objetoFuncion ? ` · Objeto ${mapping.objetoFuncion}` : ''}.`);
       return true;
     } catch {
       setNotice('No pudimos guardar el mapeo. Revisa permisos de escritura sobre Firestore y vuelve a intentar.');
@@ -543,9 +543,13 @@ function ConceptSummaryCard({ label, value }) {
 
 function MaintainerView({ group, catalog, mappings, analysis, onSaveMapping, onCatalogImport, onToggleConcept, onBack }) {
   const [catalogQuery, setCatalogQuery] = useState('');
+  const [functionQuery, setFunctionQuery] = useState('');
   const draftRows = useMemo(() => buildDraftRows(mappings, analysis, catalog), [mappings, analysis, catalog]);
   const visibleCatalog = catalog
     .filter((concept) => `${concept.codigo} ${concept.nombre}`.toLowerCase().includes(catalogQuery.toLowerCase()))
+    .slice(0, 80);
+  const visibleFunctions = FUNCTION_CATALOG
+    .filter((item) => `${item.id} ${item.nombre} ${item.tipo}`.toLowerCase().includes(functionQuery.toLowerCase()))
     .slice(0, 80);
 
   return (
@@ -561,7 +565,7 @@ function MaintainerView({ group, catalog, mappings, analysis, onSaveMapping, onC
               </div>
             </div>
             <p className="mt-2 text-sm text-muted">
-              Edita código, multiplicador y redondeo. Una fila no confirmada no participa en la exportación.
+              Edita código, objeto/función, multiplicador y redondeo. Una fila no confirmada no participa en la exportación.
             </p>
           </div>
           <button className="btn-ghost" type="button" onClick={onBack}>
@@ -576,11 +580,12 @@ function MaintainerView({ group, catalog, mappings, analysis, onSaveMapping, onC
           <span className="status-pill neutral">{draftRows.length} reglas</span>
         </div>
         <div className="mt-4 overflow-auto rounded-lg border border-slate-200">
-          <table className="data-table min-w-[980px]">
+          <table className="data-table min-w-[1220px]">
             <thead>
               <tr>
                 <th>Columna Pooler</th>
                 <th>Código concepto</th>
+                <th>Objeto / función</th>
                 <th>Multiplicador</th>
                 <th>Redondeo</th>
                 <th>Estado</th>
@@ -591,6 +596,46 @@ function MaintainerView({ group, catalog, mappings, analysis, onSaveMapping, onC
             <tbody>
               {draftRows.map((row) => (
                 <MappingRow key={row.columnaPooler} row={row} catalog={catalog} onSave={onSaveMapping} />
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <div className="panel">
+        <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
+          <div className="section-title compact">
+            <div className="section-icon"><Activity size={18} /></div>
+            <div>
+              <h3 className="text-lg font-black">Listado de funciones</h3>
+              <p className="mt-1 text-xs text-muted">Usa el ID como Objeto cuando el concepto se calcule mediante función.</p>
+            </div>
+          </div>
+          <label className="relative block md:w-80">
+            <Search className="absolute left-3 top-2.5 text-slate-400" size={16} />
+            <input className="input pl-9" value={functionQuery} onChange={(event) => setFunctionQuery(event.target.value)} placeholder="Buscar función" />
+          </label>
+        </div>
+        <div className="mt-4 max-h-80 overflow-auto rounded-lg border border-slate-200">
+          <table className="data-table min-w-[920px]">
+            <thead>
+              <tr>
+                <th>ID</th>
+                <th>Nombre</th>
+                <th>Tipo</th>
+                <th>Aclaración</th>
+                <th>Función</th>
+              </tr>
+            </thead>
+            <tbody>
+              {visibleFunctions.map((item) => (
+                <tr key={item.id}>
+                  <td className="font-mono text-xs font-bold">{item.id}</td>
+                  <td>{item.nombre}</td>
+                  <td>{item.tipo}</td>
+                  <td className="text-xs text-muted">{item.aclaracion || '-'}</td>
+                  <td className="max-w-[420px] truncate font-mono text-xs text-muted" title={item.funcion}>{item.funcion}</td>
+                </tr>
               ))}
             </tbody>
           </table>
@@ -660,27 +705,46 @@ function MaintainerView({ group, catalog, mappings, analysis, onSaveMapping, onC
 
 function MappingRow({ row, catalog, onSave }) {
   const [codigoConcepto, setCodigoConcepto] = useState(row.codigoConcepto);
+  const [objetoFuncion, setObjetoFuncion] = useState(row.objetoFuncion);
   const [multiplicador, setMultiplicador] = useState(row.multiplicador);
   const [redondeo, setRedondeo] = useState(row.redondeo);
 
   useEffect(() => {
     setCodigoConcepto(row.codigoConcepto);
+    setObjetoFuncion(row.objetoFuncion);
     setMultiplicador(row.multiplicador);
     setRedondeo(row.redondeo);
   }, [row]);
 
   const conceptExists = catalog.some((concept) => normalizeKey(concept.codigo) === normalizeKey(codigoConcepto) && concept.habilitado);
+  const functionExists = !objetoFuncion || FUNCTION_CATALOG.some((item) => normalizeKey(item.id) === normalizeKey(objetoFuncion));
+
+  function handleConceptChange(value) {
+    setCodigoConcepto(value);
+    if (!objetoFuncion) {
+      setObjetoFuncion(defaultFunctionObject(value));
+    }
+  }
 
   return (
     <tr>
       <td className="font-semibold">{row.columnaPooler}</td>
       <td>
-        <input className="input min-w-48 font-mono text-xs" value={codigoConcepto} onChange={(event) => setCodigoConcepto(event.target.value)} list="conceptos-list" />
+        <input className="input min-w-48 font-mono text-xs" value={codigoConcepto} onChange={(event) => handleConceptChange(event.target.value)} list="conceptos-list" />
         <datalist id="conceptos-list">
           {catalog.map((concept) => (
             <option key={concept.codigo} value={concept.codigo}>{concept.nombre}</option>
           ))}
         </datalist>
+      </td>
+      <td>
+        <input className="input min-w-44 font-mono text-xs" value={objetoFuncion} onChange={(event) => setObjetoFuncion(event.target.value)} list="funciones-list" placeholder="Vacío si no aplica" />
+        <datalist id="funciones-list">
+          {FUNCTION_CATALOG.map((item) => (
+            <option key={item.id} value={item.id}>{item.nombre}</option>
+          ))}
+        </datalist>
+        {!functionExists ? <p className="mt-1 text-[11px] font-bold text-amber-700">No está en listado</p> : null}
       </td>
       <td>
         <input className="input w-28" value={multiplicador} onChange={(event) => setMultiplicador(event.target.value)} />
@@ -696,7 +760,7 @@ function MappingRow({ row, catalog, onSave }) {
         <button
           className={conceptExists ? 'btn-mini-success' : 'btn-mini'}
           type="button"
-          onClick={() => onSave({ columnaPooler: row.columnaPooler, codigoConcepto, multiplicador, redondeo })}
+          onClick={() => onSave({ columnaPooler: row.columnaPooler, codigoConcepto, objetoFuncion, multiplicador, redondeo })}
         >
           <Save size={13} />
           Confirmar
@@ -740,25 +804,25 @@ function PreviewView({ group, pooler, analysis, onDownload, onBack }) {
                 <h2 className="mt-1 text-2xl font-black">Vista previa · {group.nombre}</h2>
               </div>
             </div>
-            <p className="mt-2 text-sm text-muted">La tabla replica el output final: una fila por colaborador y columnas de conceptos activos.</p>
+            <p className="mt-2 text-sm text-muted">La tabla replica el output final: una fila por movimiento informado, en formato CSV detalle separado por punto y coma.</p>
           </div>
           <button className="btn-primary" type="button" onClick={onDownload}>
             <Download size={16} />
-            Descargar Excel
+            Descargar CSV
           </button>
         </div>
       </div>
 
       <div className="grid gap-4 md:grid-cols-4">
-        <MetricPanel label="Colaboradores" value={output.rowCount} />
+        <MetricPanel label="Filas detalle" value={output.rowCount} />
+        <MetricPanel label="Colaboradores" value={output.collaboratorCount ?? '-'} />
         <MetricPanel label="Conceptos activos" value={output.conceptCount} />
-        <MetricPanel label="Valores" value={output.valueCount} />
-        <MetricPanel label="Formato" value="General" />
+        <MetricPanel label="Formato" value="CSV ;" />
       </div>
 
       <div className="panel">
         <div className="max-h-[620px] overflow-auto rounded-lg border border-slate-200">
-          <table className="data-table min-w-[1100px]">
+          <table className="data-table min-w-[1560px]">
             <thead>
               <tr>{output.headers.map((header) => <th key={header}>{header}</th>)}</tr>
             </thead>
@@ -767,7 +831,7 @@ function PreviewView({ group, pooler, analysis, onDownload, onBack }) {
                 <tr key={`${row[0]}-${index}`}>
                   {output.headers.map((header, cellIndex) => (
                     <td key={`${header}-${cellIndex}`} className={cellIndex === 0 ? 'font-mono text-xs' : ''}>
-                      {row[cellIndex] ?? ''}
+                      {formatPreviewCell(row[cellIndex])}
                     </td>
                   ))}
                 </tr>
@@ -892,6 +956,12 @@ function formatAuditNumber(value) {
   });
 }
 
+function formatPreviewCell(value) {
+  if (value === null || value === undefined) return '';
+  if (typeof value === 'number') return String(value).replace('.', ',');
+  return value;
+}
+
 function buildDraftRows(mappings, analysis, catalog) {
   const catalogFuse = new Fuse(catalog.filter((concept) => concept.habilitado), {
     keys: ['nombre', 'codigo'],
@@ -901,6 +971,7 @@ function buildDraftRows(mappings, analysis, catalog) {
 
   const rows = mappings.map((mapping) => ({
     ...mapping,
+    objetoFuncion: mapping.objetoFuncion ?? defaultFunctionObject(mapping.codigoConcepto),
     multiplicador: mapping.multiplicador ?? 1,
     redondeo: mapping.redondeo ?? 'ninguno',
     status: 'confirmado',
@@ -915,6 +986,7 @@ function buildDraftRows(mappings, analysis, catalog) {
       rows.push({
         columnaPooler: item.columnName,
         codigoConcepto: suggestion?.codigo ?? '',
+        objetoFuncion: defaultFunctionObject(suggestion?.codigo),
         multiplicador: normalizeKey(item.columnName) === 'atrasos' ? 60 : 1,
         redondeo: normalizeKey(item.columnName) === 'atrasos' ? 'decimal' : 'ninguno',
         status: suggestion ? 'propuesto' : 'sin_mapear',
@@ -923,6 +995,12 @@ function buildDraftRows(mappings, analysis, catalog) {
     });
 
   return rows;
+}
+
+function defaultFunctionObject(codigoConcepto) {
+  const conceptKey = normalizeKey(codigoConcepto);
+  const match = FUNCTION_CATALOG.find((item) => normalizeKey(item.id) === conceptKey);
+  return match?.id ?? '';
 }
 
 function parseRoute() {

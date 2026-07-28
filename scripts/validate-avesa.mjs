@@ -30,33 +30,51 @@ if (!output) {
   throw new Error('No se generó output porque hay pendientes con valores.');
 }
 
-const araya = output.rows.find((row) => row[0] === '11398527-5');
-const armijo = output.rows.find((row) => row[0] === '11142274-5');
-const minatrasosIndex = output.headers.indexOf('minatrasos');
-const accionIndex = output.headers.indexOf('Accion');
+const conceptoIndex = output.headers.indexOf('Concepto');
+const valorIndex = output.headers.indexOf('Valor');
+const origenIndex = output.headers.indexOf('Origen');
+const objetoIndex = output.headers.indexOf('Objeto');
+const periodoIndex = output.headers.indexOf('Periodo de pago');
+const accionIndex = output.headers.indexOf('Acción');
+const consolidableIndex = output.headers.indexOf('Consolidable');
+const araya = output.rows.find((row) => row[0] === '11398527-5' && row[conceptoIndex] === 'minatrasos');
+const armijo = output.rows.find((row) => row[0] === '11142274-5' && row[conceptoIndex] === 'minatrasos');
+const horaExtra = output.rows.find((row) => row[conceptoIndex] === 'horasEx50');
 
-if (!araya || araya[minatrasosIndex] !== 150) {
-  throw new Error(`Spot check ARAYA falló: ${araya?.[minatrasosIndex]}`);
+if (!araya || araya[valorIndex] !== 150) {
+  throw new Error(`Spot check ARAYA falló: ${araya?.[valorIndex]}`);
 }
 
-if (!armijo || armijo[minatrasosIndex] !== 199.8) {
-  throw new Error(`Spot check ARMIJO falló: ${armijo?.[minatrasosIndex]}`);
+if (!armijo || armijo[valorIndex] !== 199.8) {
+  throw new Error(`Spot check ARMIJO falló: ${armijo?.[valorIndex]}`);
 }
 
-if (output.rows.some((row) => row[accionIndex] !== 'C')) {
-  throw new Error('Spot check Acción falló: hay filas sin C.');
+if (output.rows.length !== output.valueCount || output.rows.length !== 182) {
+  throw new Error(`Spot check detalle falló: filas ${output.rows.length}, valores ${output.valueCount}.`);
 }
 
-if (output.rows.some((row) => row.slice(accionIndex + 1).every((value) => value === null))) {
-  throw new Error('Spot check filas exportables falló: hay colaboradores sin conceptos informados.');
+if (output.rows.some((row) => row[valorIndex] === null)) {
+  throw new Error('Spot check filas detalle falló: hay filas sin valor.');
+}
+
+if (output.rows.some((row) => row[origenIndex] !== 'F' || row[periodoIndex] !== 'M' || row[accionIndex] !== 'M' || row[consolidableIndex] !== 'No')) {
+  throw new Error('Spot check constantes falló: Origen, Periodo, Acción o Consolidable no cumplen.');
+}
+
+if (!horaExtra || horaExtra[objetoIndex] !== 'horaExtra') {
+  throw new Error(`Spot check Objeto falló para horas extra: ${horaExtra?.[objetoIndex]}`);
 }
 
 console.log(JSON.stringify({
-  colaboradores: output.rowCount,
+  filasDetalle: output.rowCount,
+  colaboradores: output.collaboratorCount,
   conceptosActivos: output.conceptCount,
   valores: output.valueCount,
   pendientesConValores: analysis.pendingColumns.map((item) => item.columnName),
-  arayaMinatrasos: araya[minatrasosIndex],
-  armijoMinatrasos: armijo[minatrasosIndex],
-  accion: 'C',
+  arayaMinatrasos: araya[valorIndex],
+  armijoMinatrasos: armijo[valorIndex],
+  horaExtraObjeto: horaExtra[objetoIndex],
+  origen: 'F',
+  accion: 'M',
+  consolidable: 'No',
 }, null, 2));

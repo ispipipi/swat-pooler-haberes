@@ -1,6 +1,6 @@
 import * as XLSX from 'xlsx';
 import FileSaver from 'file-saver';
-import { OUTPUT_BASE_HEADERS } from '../data/seeds.js';
+import { FUNCTION_CATALOG, OUTPUT_DETAIL_HEADERS } from '../data/seeds.js';
 import { ERRORS } from './errors.js';
 import { applyNumberRule, parseLocaleNumber } from './numbers.js';
 import { cleanRut, cleanText, normalizeKey } from './text.js';
@@ -176,20 +176,48 @@ export function analyzePooler(pooler, mappings, catalog) {
 }
 
 export function buildOutput(pooler, activeColumns) {
-  const headers = [...OUTPUT_BASE_HEADERS, ...activeColumns.map((item) => item.mapping.codigoConcepto)];
+  const headers = OUTPUT_DETAIL_HEADERS;
+  const rows = [];
+  const functionIds = new Set(FUNCTION_CATALOG.map((item) => normalizeKey(item.id)));
 
-  const rows = pooler.dataRows.map((row) => {
+  pooler.dataRows.forEach((row) => {
     const rut = cleanRut(row[pooler.headerIndexes.Rut]);
     const contrato = parseLocaleNumber(row[pooler.headerIndexes.Ctto]);
     const contratoValue = contrato ?? cleanText(row[pooler.headerIndexes.Ctto]);
     const nombre = cleanText(row[pooler.headerIndexes.Nombre]);
-    const base = [rut, nombre, contratoValue, contratoValue ? `Contrato ${contratoValue}` : '', 'C'];
-    const conceptValues = activeColumns.map((column) => {
+    const nombreContrato = contratoValue ? `Contrato ${contratoValue}` : '';
+
+    activeColumns.forEach((column) => {
       const index = pooler.headerIndexes[column.columnName];
-      return applyNumberRule(row[index], column.mapping.multiplicador ?? 1, column.mapping.redondeo ?? 'ninguno');
+      const valor = applyNumberRule(row[index], column.mapping.multiplicador ?? 1, column.mapping.redondeo ?? 'ninguno');
+      if (valor === null) return;
+
+      const codigoConcepto = cleanText(column.mapping.codigoConcepto);
+      const objetoFuncion = cleanText(column.mapping.objetoFuncion)
+        || (functionIds.has(normalizeKey(codigoConcepto)) ? codigoConcepto : '');
+
+      rows.push([
+        rut,
+        nombre,
+        contratoValue,
+        nombreContrato,
+        codigoConcepto,
+        valor,
+        'F',
+        objetoFuncion,
+        'M',
+        '',
+        '',
+        '',
+        '',
+        '',
+        '',
+        '',
+        'M',
+        'No',
+      ]);
     });
-    return [...base, ...conceptValues];
-  }).filter((row) => row.slice(OUTPUT_BASE_HEADERS.length).some((value) => value !== null));
+  });
 
   if (rows.length === 0) {
     throw new Error(ERRORS.noOutputRows);
@@ -204,40 +232,46 @@ export function buildOutput(pooler, activeColumns) {
     rows,
     rowCount: rows.length,
     conceptCount: activeColumns.length,
-    valueCount: rows.reduce((sum, row) => sum + row.slice(OUTPUT_BASE_HEADERS.length).filter((value) => value !== null).length, 0),
+    valueCount: rows.length,
+    collaboratorCount: new Set(rows.map((row) => row[0])).size,
   };
 }
 
 export function downloadOutputWorkbook(output, sourceName = 'pooler') {
-  const worksheet = XLSX.utils.aoa_to_sheet([output.headers, ...output.rows]);
-  worksheet['!cols'] = output.headers.map((header, index) => ({
-    wch: index < 5 ? [16, 34, 10, 22, 10][index] : Math.max(12, String(header).length + 2),
-  }));
-
-  const range = XLSX.utils.decode_range(worksheet['!ref']);
-  for (let rowIndex = 1; rowIndex <= range.e.r; rowIndex += 1) {
-    const rutAddress = XLSX.utils.encode_cell({ r: rowIndex, c: 0 });
-    if (worksheet[rutAddress]) {
-      worksheet[rutAddress].t = 's';
-      worksheet[rutAddress].z = '@';
-    }
-
-    for (let colIndex = 2; colIndex <= range.e.c; colIndex += 1) {
-      const cellAddress = XLSX.utils.encode_cell({ r: rowIndex, c: colIndex });
-      const cell = worksheet[cellAddress];
-      if (cell && typeof cell.v === 'number') {
-        cell.t = 'n';
-        cell.z = 'General';
-      }
-    }
-  }
-
-  const workbook = XLSX.utils.book_new();
-  XLSX.utils.book_append_sheet(workbook, worksheet, 'Conceptos masivo');
-  const buffer = XLSX.write(workbook, { bookType: 'xlsx', type: 'array' });
+  const csv = toSemicolonCsv([output.headers, ...output.rows]);
   const safeName = sourceName.replace(/\.[^.]+$/, '').replace(/[^\w\d-]+/g, '_').replace(/^_+|_+$/g, '');
   saveAs(
-    new Blob([buffer], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' }),
-    `${safeName || 'pooler'}_carga_masiva_haberes_swat.xlsx`,
+    new Blob([encodeWindows1252(csv)], { type: 'text/csv;charset=windows-1252' }),
+    `${safeName || 'pooler'}_carga_masiva_haberes_detalle_swat.csv`,
   );
+}
+
+function toSemicolonCsv(rows) {
+  return `${rows.map((row) => row.map(formatCsvCell).join(';')).join('\r\n')}\r\n`;
+}
+
+function formatCsvCell(value) {
+  if (typeof value === 'number') {
+    return formatCsvNumber(value);
+  }
+
+  const text = cleanText(value);
+  if (/[;"\r\n]/.test(text)) {
+    return `"${text.replace(/"/g, '""')}"`;
+  }
+  return text;
+}
+
+function formatCsvNumber(value) {
+  if (!Number.isFinite(value)) return '';
+  return String(value).replace('.', ',');
+}
+
+function encodeWindows1252(text) {
+  const bytes = new Uint8Array(text.length);
+  for (let index = 0; index < text.length; index += 1) {
+    const code = text.charCodeAt(index);
+    bytes[index] = code <= 255 ? code : 63;
+  }
+  return bytes;
 }

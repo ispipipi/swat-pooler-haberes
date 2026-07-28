@@ -5,8 +5,8 @@ export const GROUPS = [
 ];
 
 export const AVESA_MAPPINGS = [
-  { columnaPooler: 'Atrasos', codigoConcepto: 'minatrasos', multiplicador: 60, redondeo: 'decimal' },
-  { columnaPooler: 'Cantidad Horas Extras', codigoConcepto: 'horasEx50', multiplicador: 1, redondeo: 'decimal' },
+  { columnaPooler: 'Atrasos', codigoConcepto: 'minatrasos', objetoFuncion: 'minatraso', multiplicador: 60, redondeo: 'decimal' },
+  { columnaPooler: 'Cantidad Horas Extras', codigoConcepto: 'horasEx50', objetoFuncion: 'horaExtra', multiplicador: 1, redondeo: 'decimal' },
   { columnaPooler: 'Bono Responsabilidad', codigoConcepto: 'bonoresp', multiplicador: 1, redondeo: 'ninguno' },
   { columnaPooler: 'Bono Asistencia', codigoConcepto: 'bonoasist', multiplicador: 1, redondeo: 'ninguno' },
   { columnaPooler: 'Comision', codigoConcepto: 'comision', multiplicador: 1, redondeo: 'ninguno' },
@@ -56,4 +56,46 @@ export const SEED_CATALOG = [
 
 export const REDONDEO_OPTIONS = ['ninguno', 'decimal', 'entero'];
 
-export const OUTPUT_BASE_HEADERS = ['Plantilla', 'Nombre colaborador', 'Contrato', 'Nombre de contrato', 'Accion'];
+export const FUNCTION_CATALOG = [
+  { id: 'Ahorro10', nombre: 'Ahorro AFP 10', tipo: 'OT', aclaracion: '', funcion: 'P$imponibleAfp*0.1' },
+  { id: 'ATRASOS', nombre: 'ATRASOS', tipo: 'AT', aclaracion: '', funcion: 'round(((V$sueldoBase/30*7/V$horasSema)/60)*D$valor)' },
+  { id: 'bonoextra', nombre: 'Bono Extra grupo 01', tipo: 'OT', aclaracion: '', funcion: 'C$sueldoBase * 0.1' },
+  { id: 'colacion', nombre: 'Colacion mensual', tipo: 'OT', aclaracion: '', funcion: 'P$diasHabi * 5000' },
+  { id: 'gratificacion', nombre: 'Gratificacion mensual', tipo: 'OT', aclaracion: '', funcion: 'min(P$totalHabe * 0.25, 4.75 * V$ingresoMini/12)' },
+  { id: 'horaExtra100', nombre: 'Horas Extras 100%', tipo: 'HE', aclaracion: 'D$valor', funcion: 'round(C$sueldoBase/30*7/V$horasSema*2*D$valor)' },
+  { id: 'horaExtra30', nombre: 'Horas Extras 30%', tipo: 'HE', aclaracion: 'D$valor', funcion: 'round(C$sueldoBase/30*7/V$horasSema*1.3*D$valor)' },
+  { id: 'horaExtra', nombre: 'Horas Extras 50%', tipo: 'HE', aclaracion: 'D$valor', funcion: 'round(C$sueldoBase/30*7/V$horasSema*1.5*D$valor)' },
+  { id: 'horaExtra75', nombre: 'Horas Extras 75%', tipo: 'HE', aclaracion: 'D$valor', funcion: 'round(C$sueldoBase/30*7/V$horasSema*1.75*D$valor)' },
+  { id: 'HORAS_NO_TRABAJADAS', nombre: 'HORAS NO TRABAJADAS', tipo: 'AT', aclaracion: 'Ingresar minutos no trabajados', funcion: 'round(((V$sueldoBase/30*7/V$horasSema)/60)*D$valor)' },
+  { id: 'minatraso', nombre: 'Minutos de Atraso', tipo: 'AT', aclaracion: 'D$valor', funcion: '(C$sueldoBase/30*7/V$horasSema)*-D$valor' },
+  { id: 'BonoAsistyPuntAlere', nombre: 'NO paga x ausencias y o atrasos', tipo: 'OT', aclaracion: 'No paga si falta y/o atrasos', funcion: 'round(D$valor if P$diasTrab ==30 else D$valor / 30 * P$diasTrab if ((P$diasLice <=30 or P$antiCont <= 30 or P$diasTermino <= 30 ) and P$diasFalt==0 and C$atraso==0) else 0)' },
+  { id: 'porc_imponible', nombre: 'Porcentaje Imponible', tipo: 'OT', aclaracion: '.', funcion: 'round((D$valor * P$totalImpo)/100)' },
+  { id: 'prestSolHonorario', nombre: 'Prestamo Solidario 3% Honorarios', tipo: 'OT', aclaracion: '', funcion: 'round(C$boletaHonorarios*0.03)' },
+  { id: 'prestSolRemuneracion', nombre: 'Prestamo Solidario Remuneraciones', tipo: 'OT', aclaracion: '', funcion: 'round((P$totalHabe - P$totalReba)*0.03)' },
+  { id: 'ProporcionalLic', nombre: 'Proporciona Licencia Medica', tipo: 'OT', aclaracion: '', funcion: 'D$valor/30 * (P$diasTrab+ P$diasFalt) - (P$diasPerm + P$diasLice)' },
+  { id: 'ProporcionaLic15', nombre: 'Proporciona LM mas de 15 dias igual cero', tipo: 'OT', aclaracion: '', funcion: '0 if P$diasLice <15 else D$valor/30*(30 - P$diasLice)' },
+  { id: 'Proporcional_faltas', nombre: 'Proporciona por faltas', tipo: 'OT', aclaracion: 'Proporciona solo por faltas', funcion: '(D$valor/30) * (P$diasTrab+P$diasLice) if (D$valor/30) * (P$diasTrab+P$diasLice) - P$diasFalt else D$valor' },
+  { id: 'UTM', nombre: 'Retencion en UTM', tipo: 'OT', aclaracion: '', funcion: '(P$valorUtmMes*D$valor)' },
+  { id: 'valorUF', nombre: 'Valor UF', tipo: 'OT', aclaracion: 'D$valor', funcion: 'round(P$valorUfMes * D$valor)' },
+];
+
+export const OUTPUT_DETAIL_HEADERS = [
+  'Plantilla',
+  'Nombre colaborador',
+  'Contrato',
+  'Nombre de contrato',
+  'Concepto',
+  'Valor',
+  'Origen',
+  'Objeto',
+  'Periodo de pago',
+  'Fecha de inicio',
+  'Fecha de término',
+  'Institución',
+  'Dato adicional',
+  'Comentario',
+  'Valor Por Defecto',
+  'Centro Costo',
+  'Acción',
+  'Consolidable',
+];

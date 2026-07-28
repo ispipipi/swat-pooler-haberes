@@ -8,7 +8,7 @@ import {
   writeBatch,
 } from 'firebase/firestore';
 import { auth, db, firebaseReady } from './firebaseClient.js';
-import { AVESA_MAPPINGS, GROUPS, SEED_CATALOG } from '../data/seeds.js';
+import { AVESA_MAPPINGS, FUNCTION_CATALOG, GROUPS, SEED_CATALOG } from '../data/seeds.js';
 import { normalizeKey } from './text.js';
 
 const STORAGE_KEY = 'swat-pooler-haberes-local-state-v111';
@@ -63,11 +63,11 @@ export async function loadCatalog() {
 
 export async function loadMappings(groupId) {
   if (!firebaseReady || !db) {
-    return readLocalState().mapeos[groupId] ?? [];
+    return hydrateMappings(groupId, readLocalState().mapeos[groupId] ?? []);
   }
 
   const snapshot = await getDocs(collection(db, 'mapeos', groupId, 'conceptos'));
-  return snapshot.docs.map((item) => item.data());
+  return hydrateMappings(groupId, snapshot.docs.map((item) => item.data()));
 }
 
 export async function saveMapping(groupId, mapping) {
@@ -194,7 +194,32 @@ function normalizeMappingPayload(mapping) {
   return {
     columnaPooler: String(mapping.columnaPooler).trim(),
     codigoConcepto: String(mapping.codigoConcepto).trim(),
+    objetoFuncion: String(mapping.objetoFuncion ?? '').trim(),
     multiplicador: Number(mapping.multiplicador ?? 1),
     redondeo: mapping.redondeo || 'ninguno',
   };
+}
+
+function hydrateMappings(groupId, mappings) {
+  if (groupId !== 'grupo_avesa') {
+    return mappings.map((mapping) => ({
+      ...mapping,
+      objetoFuncion: mapping.objetoFuncion ?? defaultFunctionObject(mapping.codigoConcepto),
+    }));
+  }
+
+  const defaults = new Map(AVESA_MAPPINGS.map((mapping) => [normalizeKey(mapping.columnaPooler), mapping]));
+  return mappings.map((mapping) => {
+    const seeded = defaults.get(normalizeKey(mapping.columnaPooler));
+    return {
+      ...mapping,
+      objetoFuncion: mapping.objetoFuncion ?? seeded?.objetoFuncion ?? defaultFunctionObject(mapping.codigoConcepto),
+    };
+  });
+}
+
+function defaultFunctionObject(codigoConcepto) {
+  const conceptKey = normalizeKey(codigoConcepto);
+  const functionMatch = FUNCTION_CATALOG.find((item) => normalizeKey(item.id) === conceptKey);
+  return functionMatch?.id ?? '';
 }
