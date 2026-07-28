@@ -1,0 +1,12 @@
+<!doctype html>
+<html>
+  <head>
+    <meta charset="UTF-8" />
+    <script>
+      const base = '/swat-pooler-haberes';
+      const path = window.location.pathname.replace(base, '') || '/';
+      window.location.replace(`${base}/?redirect=${encodeURIComponent(path + window.location.search + window.location.hash)}`);
+    </script>
+  </head>
+  <body></body>
+</html>
