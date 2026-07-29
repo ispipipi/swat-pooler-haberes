@@ -718,6 +718,7 @@ function MappingRow({ row, catalog, onSave }) {
 
   const conceptExists = catalog.some((concept) => normalizeKey(concept.codigo) === normalizeKey(codigoConcepto) && concept.habilitado);
   const functionExists = !objetoFuncion || FUNCTION_CATALOG.some((item) => normalizeKey(item.id) === normalizeKey(objetoFuncion));
+  const finalOrigin = String(objetoFuncion ?? '').trim() ? 'F' : 'M';
 
   function handleConceptChange(value) {
     setCodigoConcepto(value);
@@ -744,6 +745,10 @@ function MappingRow({ row, catalog, onSave }) {
             <option key={item.id} value={item.id}>{item.nombre}</option>
           ))}
         </datalist>
+        <p className="mt-2 flex items-center gap-2 text-[11px] font-black text-slate-600">
+          <span className={finalOrigin === 'F' ? 'status-pill ok' : 'status-pill neutral'}>Origen {finalOrigin}</span>
+          {finalOrigin === 'F' ? 'Usa función' : 'Sin función'}
+        </p>
         {!functionExists ? <p className="mt-1 text-[11px] font-bold text-amber-700">No está en listado</p> : null}
       </td>
       <td>
